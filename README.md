@@ -2,8 +2,8 @@
 Prohibits purchase or picking up certain weapons
 
 ## Requirements
-[Metamod](https://www.sourcemm.net/downloads.php/?branch=master)
-[CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v10)(v10)
+- [Metamod](https://www.sourcemm.net/downloads.php/?branch=master)
+- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v10) >= v10
 
 ## Install
 Drop folder `build/Weapon_Restrict` to `addons\counterstrikesharp\plugins\`
