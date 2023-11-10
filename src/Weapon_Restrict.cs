@@ -188,15 +188,15 @@ public class WeaponRestrict : BasePlugin
 					    foreach (var w in wpn.PlayerQuota?["T"]!)
 					    {
 						    foreach (var key in w.Keys.Where(key => players >= Convert.ToByte(key)))
+						    {
 							    res.ReturnedCount = w[key];
+							    res.ReturnedResult = true;
+						    }
+						    
 					    }
 					    break;
 				    }
 			    }
-		    
-			    if (wpn.WeaponQuota != null)
-				    res.ReturnedResult = (team == 3 && wpn.WeaponQuota["CT"] < res.ReturnedCount) ||
-				                         (team == 2 && wpn.WeaponQuota["T"] < res.ReturnedCount);
 			    break;
 		    }
 	    }
