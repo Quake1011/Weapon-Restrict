@@ -16,20 +16,11 @@
                 RefundMessageStatus = true,
                 RefundMessage = "Money refunded {GOLD}{MONEY}",
 
-                RestrictMethod = 2
+                RestrictMethod = 2,
+                AdminImmunityFlag = "@css/root"
             };
         }
 
-        public static List<string> LoadAdmins()
-        {
-            return new List<string>
-            {
-                "76561198320657949",
-                "76561198204749256",
-                "76561198163411671"
-            };
-        }
-        
         public static List<RestrictConfig> LoadRestrictions()
         {
             return new List<RestrictConfig>

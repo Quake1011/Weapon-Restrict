@@ -3,7 +3,7 @@ The plugin allows to restrict certain weapons depending on the players in the te
 
 ## Requirements
 - [Metamod](https://www.sourcemm.net/downloads.php/?branch=master)
-- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v10) >= v16
+- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v28) >= v28
 
 ## Install
 - Drop folder `build/Weapon_Restrict` to `addons/counterstrikesharp/plugins/`
@@ -11,7 +11,6 @@ The plugin allows to restrict certain weapons depending on the players in the te
 - Configuration files will be generated after the plugin is launched in the folder `addons/counterstrikesharp/plugins/Weapon_Restrict`:
 	- `Config.json`				- Common settings
 	- `RestrictConfig.json`		- Restrictions settings
-	- `Admins.json`				- Admins list
 
 ## Configs
 
@@ -26,6 +25,7 @@ The plugin allows to restrict certain weapons depending on the players in the te
 	"RefundMessage": "Money redunded {GOLD}{MONEY}",	// Refund message
 	"RefundMessageStatus": true,						// Indicates whether the refund message is enabled			[ true - on | false - off]
 	"RestrictMethod": 2								// Method of restricting [ 1 - by players | 2 - by weapons ]
+	"AdminImmunityFlag": "@css/root"				// Admin-flag to enable immunity for player. Admin list can be finded here:`addons/counterstrikesharp/configs/admins.json`
 }
 ```
 ### RestrictConfig.json
@@ -56,18 +56,6 @@ The plugin allows to restrict certain weapons depending on the players in the te
 	}
 }
 // here can add more weapons using ","
-```
-
-### Admins.json
-```
-[
-    {
-		"76561198320657949",		// admin 1 by steamid64
-		"76561198204749256",		// admin 2 by steamid64
-		"76561198163411671"			// admin 3 by steamid64
-		// here can add more admins using ","
-    }
-]
 ```
 
 ## About possible problems, please let me know: 

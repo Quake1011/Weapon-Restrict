@@ -3,24 +3,23 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Timers;
 
 namespace Weapon_Restrict;
 public class WeaponRestrict : BasePlugin
 {
 	public override string ModuleName => "Weapon Restrict";
-    public override string ModuleVersion => "1.1";
+    public override string ModuleVersion => "1.1.1";
     public override string ModuleAuthor => "Quake1011";
     public override string ModuleDescription => "Prohibits purchase or picking up restricted weapons";
     private const string MyLink = "https://github.com/Quake1011";
 
-    private const int MinVersion = 16;
-
+    private const int MinVersion = 28;
     private List<WeaponMeta> _weaponList = new();
     private List<RestrictConfig>? _restrictions = new();
     private static Config? _config = new();
-    private List<string>? _admins;
-    
+
     public override void Load(bool hotReload)
     {
 	    if (Api.GetVersion() < MinVersion)
@@ -32,7 +31,7 @@ public class WeaponRestrict : BasePlugin
 		    PrintInfo();
 		    
 		    _weaponList = MetaData.Load();
-		    LoadConfigs();		    
+		    LoadConfigs();
 	    }
     }
 
@@ -41,7 +40,7 @@ public class WeaponRestrict : BasePlugin
     [GameEventHandler(mode: HookMode.Post)]
     private HookResult OnEventItemPurchasePost(EventItemPurchase @event, GameEventInfo info)
     {
-	    if (_admins?.Contains($"{@event.Userid.SteamID}") != null) return HookResult.Continue; 
+	    if (IsAdmin(@event.Userid)) return HookResult.Continue;
 	    
 	    var restrictedWeapon = _weaponList.FirstOrDefault(w => w.WeaponName == @event.Weapon);
 	    if (restrictedWeapon == null) return HookResult.Continue;
@@ -77,8 +76,8 @@ public class WeaponRestrict : BasePlugin
     [GameEventHandler(mode: HookMode.Pre)]
     private HookResult OnEventItemPickupPost(EventItemPickup @event, GameEventInfo info)
     {
-	    if (_admins?.Contains($"{@event.Userid.SteamID}") != null) return HookResult.Continue; 
-		    
+	    if (IsAdmin(@event.Userid)) return HookResult.Continue;
+	    
 	    var checking = RestrictedWeaponCheck(@event.Defindex, @event.Userid.TeamNum);
 	    
 	    if (checking.ReturnedResult == false)
@@ -97,6 +96,7 @@ public class WeaponRestrict : BasePlugin
 			{
 				var message = _config.RestrictMessageText;
 				message = message?.Replace("{TAG}", _config.Tag);
+				message = message?.Replace("{WEAPON}", restrictedWeapon.Name);
 				message = message?.Replace("{COUNT}", $"{checking.ReturnedCount}");
 				message = ReplaceTags(message!);
 				
@@ -133,29 +133,36 @@ public class WeaponRestrict : BasePlugin
     
     private Result RestrictedWeaponCheck(long defIndex, int team)
     {
-	    var res = new Result() { ReturnedCount = 0, ReturnedResult = false };
-	    var wpn = _restrictions?.FirstOrDefault(k => k.Weapon == _weaponList.FirstOrDefault(w => w.DefIndex == defIndex)?.WeaponName);
+	    var res = new Result() { ReturnedCount = 0, ReturnedResult = true };
 	    
-	    if (wpn == null) return res;
-	    var weapons = 0;
-	    for (var i = 0; i < Server.MaxPlayers; i++)
-	    {
-		    CCSPlayerController player = new(NativeAPI.GetEntityFromIndex(i));
-		    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) continue;
+	    var wpn = _restrictions?.FirstOrDefault(k => k.Weapon == _weaponList.FirstOrDefault(w => w.DefIndex == defIndex)?.WeaponName);
 
-		    weapons += player.PlayerPawn.Value.WeaponServices!.MyWeapons.Where(ownerWeapon => ownerWeapon is { IsValid: true, Value.IsValid: true }).Count(ownerWeapon => defIndex == ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex);
+	    if (wpn == null)
+	    {
+		    res.ReturnedResult = false;
+		    return res;
 	    }
+
 	    switch (_config?.RestrictMethod)
 	    {
 		    case (int)Method.Count:
 		    {
+			    var weapons = 0;
+			    for (var i = 0; i < Server.MaxPlayers; i++)
+			    {
+				    CCSPlayerController player = new(NativeAPI.GetEntityFromIndex(i));
+				    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) continue;
+
+				    weapons += player.PlayerPawn.Value.WeaponServices!.MyWeapons.Where(ownerWeapon => ownerWeapon is { IsValid: true, Value.IsValid: true }).Count(ownerWeapon => defIndex == ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex);
+			    }
+			    
 			    if (wpn.WeaponQuota != null)
 			    {
 				    res.ReturnedResult = (team == 3 && wpn.WeaponQuota["CT"] < weapons) || (team == 2 && wpn.WeaponQuota["T"] < weapons);
 				    res.ReturnedCount = team switch
 				    {
-					    3 => wpn.WeaponQuota["CT"],
 					    2 => wpn.WeaponQuota["T"],
+					    3 => wpn.WeaponQuota["CT"],
 					    _ => res.ReturnedCount
 				    };
 			    }
@@ -171,32 +178,24 @@ public class WeaponRestrict : BasePlugin
 				    players++;
 			    }
 
-			    switch (team)
+			    res.ReturnedCount = 0;
+			    res.ReturnedResult = true;
+			    
+			    var ctr = 0;
+			    foreach (var w in team == 2 ? wpn.PlayerQuota?["T"]! : wpn.PlayerQuota?["CT"]!)
 			    {
-				    case 3:
+				    foreach (var key in w.Keys)
 				    {
-					    foreach (var w in wpn.PlayerQuota?["CT"]!)
+					    if (players >= Convert.ToInt32(key))
 					    {
-						    foreach (var key in w.Keys.Where(key => players >= Convert.ToByte(key)))
-							    res.ReturnedCount = w[key];
+						    res.ReturnedCount = ctr == 0 ? 0 : w[key];
+						    res.ReturnedResult = true;
+						    ctr++;
 					    }
-					    
-					    break;
-				    }
-				    case 2:
-				    {
-					    foreach (var w in wpn.PlayerQuota?["T"]!)
-					    {
-						    foreach (var key in w.Keys.Where(key => players >= Convert.ToByte(key)))
-						    {
-							    res.ReturnedCount = w[key];
-							    res.ReturnedResult = true;
-						    }
-						    
-					    }
-					    break;
+					    else break;
 				    }
 			    }
+
 			    break;
 		    }
 	    }
@@ -207,57 +206,23 @@ public class WeaponRestrict : BasePlugin
     private void LoadConfigs()
     {
 	    var configPath = Path.Join(ModuleDirectory, "Config.json");
-	    _config = !File.Exists(configPath)
-		    ? CreateConfig(configPath)
-		    : JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
+	    _config = !File.Exists(configPath) ? CreateConfig(configPath) : JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
 	    
 	    configPath = Path.Join(ModuleDirectory, "RestrictConfig.json");
-	    _restrictions = !File.Exists(configPath)
-		    ? CreateRestrictions(configPath)
-		    : JsonSerializer.Deserialize<List<RestrictConfig>>(File.ReadAllText(configPath));
-	    
-	    configPath = Path.Join(ModuleDirectory, "Admins.json");
-	    _admins = !File.Exists(configPath)
-		    ? CreateAdmin(configPath)
-		    : JsonSerializer.Deserialize<List<string>>(File.ReadAllText(configPath));
+	    _restrictions = !File.Exists(configPath) ? CreateRestrictions(configPath) : JsonSerializer.Deserialize<List<RestrictConfig>>(File.ReadAllText(configPath));
     }
 
-    private static List<string> CreateAdmin(string configPath)
-    {
-	    var data = Initializer.LoadAdmins();
-	    File.WriteAllText(configPath,
-		    JsonSerializer.Serialize(data,
-			    new JsonSerializerOptions
-			    {
-				    WriteIndented = true,
-				    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-			    }));
-	    return data;
-    }
-    
     private static Config CreateConfig(string configPath)
     {
         var data = Initializer.LoadConfig();
-        File.WriteAllText(configPath,
-            JsonSerializer.Serialize(data,
-                new JsonSerializerOptions
-                {
-                    WriteIndented = true,
-                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-                }));
+        File.WriteAllText(configPath, JsonSerializer.Serialize(data, new JsonSerializerOptions{ WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
         return data;
     }
 
     private static List<RestrictConfig> CreateRestrictions(string configPath)
     {
 	    var data = Initializer.LoadRestrictions();
-	    File.WriteAllText(configPath,
-		    JsonSerializer.Serialize(data,
-			    new JsonSerializerOptions
-			    {
-				    WriteIndented = true,
-				    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-			    }));
+	    File.WriteAllText(configPath, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
 	    return data;
     }
 
@@ -323,6 +288,11 @@ public class WeaponRestrict : BasePlugin
 	    Players = 1,
 	    Count
     }
+
+    private static bool IsAdmin(CCSPlayerController player)
+    {
+	    return _config?.AdminImmunityFlag != null && AdminManager.PlayerHasPermissions(player, _config.AdminImmunityFlag);
+    }
 }
 
 public class WeaponMeta
@@ -344,13 +314,14 @@ public class Config
 	public bool RefundMessageStatus { get; init; }
 	// public bool RestrictSound { get; set; }
 	public int RestrictMethod { get; set; }
+	public string? AdminImmunityFlag { get; set; }
 }
 
 public class RestrictConfig
 {
-	public string? Weapon { get; set; }
-	public Dictionary<string, int>? WeaponQuota { get; set; }
-	public Dictionary<string, List<Dictionary<string, int>>>? PlayerQuota { get; set; }
+	public string? Weapon { get; init; }
+	public Dictionary<string, int>? WeaponQuota { get; init; }
+	public Dictionary<string, List<Dictionary<string, int>>>? PlayerQuota { get; init; }
 }
 
 public class Result
