@@ -42,6 +42,47 @@
             </summary>
             <param name="instance">The instance of the object where the event handlers are defined.</param>
         </member>
+        <member name="T:CounterStrikeSharp.API.Core.CoreConfigData">
+            <summary>
+            Serializable instance of the CoreConfig
+            </summary>
+        </member>
+        <member name="T:CounterStrikeSharp.API.Core.CoreConfig">
+            <summary>
+            Configuration related to the Core API.
+            </summary>
+        </member>
+        <member name="P:CounterStrikeSharp.API.Core.CoreConfig.PublicChatTrigger">
+            <summary>
+            List of characters to use for public chat triggers.
+            </summary>
+        </member>
+        <member name="P:CounterStrikeSharp.API.Core.CoreConfig.SilentChatTrigger">
+            <summary>
+            List of characters to use for silent chat triggers.
+            </summary>
+        </member>
+        <member name="P:CounterStrikeSharp.API.Core.CoreConfig.FollowCS2ServerGuidelines">
+             <summary>
+             <para>
+             Per <see href="http://blog.counter-strike.net/index.php/server_guidelines/"/>, certain plugin
+             functionality will trigger all of the game server owner's Game Server Login Tokens
+             (GSLTs) to get banned when executed on a Counter-Strike 2 game server.
+             </para>
+            
+             <para>
+             Enabling this option will block plugins from using functionality that is known to cause this.
+            
+             Note that this does NOT guarantee that you cannot
+            
+             receive a ban.
+             </para>
+            
+             <para>
+             Disable this option at your own risk.
+             </para>
+             </summary>
+        </member>
         <member name="T:CounterStrikeSharp.API.Core.HookMode">
             <summary>
             Specifies the hook mode.
@@ -107,6 +148,11 @@
             <summary>
             Will be called by CounterStrikeSharp on plugin unload. In this method the plugin should cleanup any extra resources.
             Event handlers, listeners etc. will automatically be deregistered.
+            </summary>
+        </member>
+        <member name="T:CounterStrikeSharp.API.Core.IPluginConfig`1">
+            <summary>
+            An interface that describes a plugin configuration.
             </summary>
         </member>
         <member name="T:CounterStrikeSharp.API.Core.Listeners.OnEntitySpawned">

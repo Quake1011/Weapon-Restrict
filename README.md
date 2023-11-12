@@ -3,7 +3,7 @@ The plugin allows to restrict certain weapons depending on the players in the te
 
 ## Requirements
 - [Metamod](https://www.sourcemm.net/downloads.php/?branch=master)
-- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v30) >= v30
+- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v42) >= v42
 
 ## Install
 - Drop folder `build/Weapon_Restrict` to `addons/counterstrikesharp/plugins/`
@@ -56,6 +56,9 @@ The plugin allows to restrict certain weapons depending on the players in the te
 	}
 }
 // here can add more weapons using ","
+```
+```diff
+- Do not try to copy this jsons into your config. Json does not support commenting! Comments have been added here for your convenience.
 ```
 
 ## About possible problems, please let me know: 

@@ -2,11 +2,13 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Modules.Utils;
 using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
-using CounterStrikeSharp.API.Modules.Timers;
 
 namespace Weapon_Restrict;
+
+[MinimumApiVersion(42)]
 public class WeaponRestrict : BasePlugin
 {
 	public override string ModuleName => "Weapon Restrict";
@@ -14,29 +16,21 @@ public class WeaponRestrict : BasePlugin
     public override string ModuleAuthor => "Quake1011";
     public override string ModuleDescription => "Prohibits purchase or picking up restricted weapons";
     private const string MyLink = "https://github.com/Quake1011";
-
-    private const int MinVersion = 28;
+    
     private List<WeaponMeta> _weaponList = new();
     private List<RestrictConfig>? _restrictions = new();
     private static Config? _config = new();
 
     public override void Load(bool hotReload)
     {
-	    if (Api.GetVersion() < MinVersion)
-		    AddTimer(5.0f, Informer, TimerFlags.REPEAT);
-	    else
-	    {
-		    RegisterEventHandler<EventItemPurchase>(OnEventItemPurchasePost);
-		    RegisterEventHandler<EventItemPickup>(OnEventItemPickupPost);
-		    PrintInfo();
-		    
-		    _weaponList = MetaData.Load();
-		    LoadConfigs();
-	    }
+	    RegisterEventHandler<EventItemPurchase>(OnEventItemPurchasePost);
+	    RegisterEventHandler<EventItemPickup>(OnEventItemPickupPost);
+	    PrintInfo();
+	    
+	    _weaponList = MetaData.Load();
+	    LoadConfigs();
     }
 
-    private static void Informer() { Server.PrintToConsole($"[WeaponRestrict] The server needs to be updated to Counter Strike Sharp version no lower than {MinVersion}"); }
-    
     [GameEventHandler(mode: HookMode.Post)]
     private HookResult OnEventItemPurchasePost(EventItemPurchase @event, GameEventInfo info)
     {
@@ -65,9 +59,9 @@ public class WeaponRestrict : BasePlugin
 		    case (int)PrintType.Chat:
 			    @event.Userid.PrintToChat(" " + message);
 			    break;
-		    case (int)PrintType.Html:
-			    @event.Userid.PrintToCenterHtml(message);
-			    break;
+		    // case (int)PrintType.Html:
+			   //  @event.Userid.PrintToCenterHtml(message);
+			   //  break;
 	    }
 
 	    return HookResult.Continue;
@@ -105,9 +99,9 @@ public class WeaponRestrict : BasePlugin
 					case (int)PrintType.Chat:
 						@event.Userid.PrintToChat(" " + message);
 						break;
-					case (int)PrintType.Html:
-						@event.Userid.PrintToCenterHtml(message);
-						break;
+					// case (int)PrintType.Html:
+					// 	@event.Userid.PrintToCenterHtml(message);
+					// 	break;
 				}
 			}
 		    
@@ -133,7 +127,7 @@ public class WeaponRestrict : BasePlugin
     
     private Result RestrictedWeaponCheck(long defIndex, int team)
     {
-	    var res = new Result() { ReturnedCount = 0, ReturnedResult = true };
+	    var res = new Result { ReturnedCount = 0, ReturnedResult = true };
 	    
 	    var wpn = _restrictions?.FirstOrDefault(k => k.Weapon == _weaponList.FirstOrDefault(w => w.DefIndex == defIndex)?.WeaponName);
 
@@ -170,39 +164,66 @@ public class WeaponRestrict : BasePlugin
 		    }
 		    case (int)Method.Players:
 		    {
-			    var players = 0;
-			    for (var i = 0; i < Server.MaxPlayers; i++)
+			    var totalTeamPlayers = new List<CCSPlayerController>();
+			    foreach (var pl in Utilities.GetPlayers())
 			    {
-				    CCSPlayerController player = new(NativeAPI.GetEntityFromIndex(i));
-				    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) continue;
-				    players++;
-			    }
-
-			    res.ReturnedCount = 0;
-			    res.ReturnedResult = true;
-			    
-			    var ctr = 0;
-			    foreach (var w in team == 2 ? wpn.PlayerQuota?["T"]! : wpn.PlayerQuota?["CT"]!)
-			    {
-				    foreach (var key in w.Keys)
+				    if (pl.TeamNum == team)
 				    {
-					    if (players >= Convert.ToInt32(key))
-					    {
-						    res.ReturnedCount = ctr == 0 ? 0 : w[key];
-						    res.ReturnedResult = true;
-						    ctr++;
-					    }
-					    else break;
+					    totalTeamPlayers.Add(pl);
 				    }
 			    }
 
+			    var sameWeapons = 0;
+			    foreach (var player in totalTeamPlayers)
+			    {
+				    foreach (var playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons)
+				    {
+					    if (playerWeapon.Value.IsValid && playerWeapon != null!)
+					    {
+						    if (playerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex == defIndex)
+						    {
+							    sameWeapons++;
+						    }
+					    }
+				    }
+			    }
+
+			    var playerDictByTeam = new List<Dictionary<string, int>>();
+			    switch (team)
+			    {
+				    case 3:
+					    playerDictByTeam = wpn.PlayerQuota?["CT"];
+					    break;
+				    case 2:
+					    playerDictByTeam = wpn.PlayerQuota?["T"];
+					    break;
+			    }
+
+			    if (playerDictByTeam != null)
+			    {
+				    foreach (var line in playerDictByTeam)
+				    {
+					    foreach (var quota in line)
+					    {
+						    if(Convert.ToInt32(quota.Key) <= totalTeamPlayers.Count)
+						    {
+							    res.ReturnedCount = quota.Value;
+						    }
+					    }
+				    }
+
+				    if (res.ReturnedCount >= sameWeapons)
+				    {
+					    res.ReturnedResult = false;
+				    }
+			    }
 			    break;
 		    }
 	    }
 
 	    return res;
     }
-    
+
     private void LoadConfigs()
     {
 	    var configPath = Path.Join(ModuleDirectory, "Config.json");
@@ -230,27 +251,27 @@ public class WeaponRestrict : BasePlugin
     {
 	    switch (_config!.DestinationTypeRestrictMessage)
 	    {
-		    case (byte)PrintType.Html:
-			    text = text.Replace("{DEFAULT}", $"{HtmlColors.White}");
-			    text = text.Replace("{WHITE}", $"{HtmlColors.WhiteBlue}");
-			    text = text.Replace("{DARKRED}", $"{HtmlColors.DarkRed}");
-			    text = text.Replace("{GREEN}", $"{HtmlColors.Green}");
-			    text = text.Replace("{LIGHTYELLOW}", $"{HtmlColors.LightYellow}");
-			    text = text.Replace("{LIGHTBLUE}", $"{HtmlColors.LightBlue}");
-			    text = text.Replace("{OLIVE}", $"{HtmlColors.Olive}");
-			    text = text.Replace("{LIME}", $"{HtmlColors.Lime}");
-			    text = text.Replace("{RED}", $"{HtmlColors.Red}");
-			    text = text.Replace("{PURPLE}", $"{HtmlColors.Purple}");
-			    text = text.Replace("{GREY}", $"{HtmlColors.GrayWolf}");
-			    text = text.Replace("{YELLOW}", $"{HtmlColors.Yellow}");
-			    text = text.Replace("{GOLD}", $"{HtmlColors.Gold}");
-			    text = text.Replace("{SILVER}", $"{HtmlColors.Silver}");
-			    text = text.Replace("{BLUE}", $"{HtmlColors.Blue}");
-			    text = text.Replace("{DARKBLUE}", $"{HtmlColors.DarkBlue}");
-			    text = text.Replace("{BLUEGREY}", $"{HtmlColors.GrayCloud}");
-			    text = text.Replace("{MAGENTA}", $"{HtmlColors.MagentaPink}");
-			    text = text.Replace("{LIGHTRED}", $"{HtmlColors.LightRed}");
-			    break;
+		    // case (byte)PrintType.Html:
+			   //  text = text.Replace("{DEFAULT}", $"{HtmlColors.White}");
+			   //  text = text.Replace("{WHITE}", $"{HtmlColors.WhiteBlue}");
+			   //  text = text.Replace("{DARKRED}", $"{HtmlColors.DarkRed}");
+			   //  text = text.Replace("{GREEN}", $"{HtmlColors.Green}");
+			   //  text = text.Replace("{LIGHTYELLOW}", $"{HtmlColors.LightYellow}");
+			   //  text = text.Replace("{LIGHTBLUE}", $"{HtmlColors.LightBlue}");
+			   //  text = text.Replace("{OLIVE}", $"{HtmlColors.Olive}");
+			   //  text = text.Replace("{LIME}", $"{HtmlColors.Lime}");
+			   //  text = text.Replace("{RED}", $"{HtmlColors.Red}");
+			   //  text = text.Replace("{PURPLE}", $"{HtmlColors.Purple}");
+			   //  text = text.Replace("{GREY}", $"{HtmlColors.GrayWolf}");
+			   //  text = text.Replace("{YELLOW}", $"{HtmlColors.Yellow}");
+			   //  text = text.Replace("{GOLD}", $"{HtmlColors.Gold}");
+			   //  text = text.Replace("{SILVER}", $"{HtmlColors.Silver}");
+			   //  text = text.Replace("{BLUE}", $"{HtmlColors.Blue}");
+			   //  text = text.Replace("{DARKBLUE}", $"{HtmlColors.DarkBlue}");
+			   //  text = text.Replace("{BLUEGREY}", $"{HtmlColors.GrayCloud}");
+			   //  text = text.Replace("{MAGENTA}", $"{HtmlColors.MagentaPink}");
+			   //  text = text.Replace("{LIGHTRED}", $"{HtmlColors.LightRed}");
+			   //  break;
 		    case (byte)PrintType.Chat:
 			    text = text.Replace("{DEFAULT}", $"{ChatColors.Default}");
 			    text = text.Replace("{WHITE}", $"{ChatColors.White}");
@@ -280,7 +301,7 @@ public class WeaponRestrict : BasePlugin
     private enum PrintType
     {
 	    Chat = 1,
-	    Html
+	    // Html
     }
 
     private enum Method
@@ -312,7 +333,6 @@ public class Config
 	public bool RestrictMessageStatus { get; init; }
 	public string? RefundMessage { get; init; }
 	public bool RefundMessageStatus { get; init; }
-	// public bool RestrictSound { get; set; }
 	public int RestrictMethod { get; set; }
 	public string? AdminImmunityFlag { get; set; }
 }

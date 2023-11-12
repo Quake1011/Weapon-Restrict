@@ -8,17 +8,17 @@
     ".NETCoreApp,Version=v7.0": {
       "Weapon_Restrict/1.0.0": {
         "dependencies": {
-          "CounterStrikeSharp.API": "1.0.30.0"
+          "CounterStrikeSharp.API": "1.0.42.0"
         },
         "runtime": {
           "Weapon_Restrict.dll": {}
         }
       },
-      "CounterStrikeSharp.API/1.0.30.0": {
+      "CounterStrikeSharp.API/1.0.42.0": {
         "runtime": {
           "CounterStrikeSharp.API.dll": {
-            "assemblyVersion": "1.0.30.0",
-            "fileVersion": "1.0.30.0"
+            "assemblyVersion": "1.0.42.0",
+            "fileVersion": "1.0.42.0"
           }
         }
       },
@@ -54,7 +54,7 @@
       "serviceable": false,
       "sha512": ""
     },
-    "CounterStrikeSharp.API/1.0.30.0": {
+    "CounterStrikeSharp.API/1.0.42.0": {
       "type": "reference",
       "serviceable": false,
       "sha512": ""
