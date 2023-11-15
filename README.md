@@ -58,7 +58,7 @@ The plugin allows you to restrict the use of certain weapons depending on the pl
 		"4": 1,						// Allowed deagles to 1 for 4-7 players
 		"8": 2,						// Allowed deagles to 2 for 8-15 players
 		"16": 3						// Allowed deagles to 3 for 16-... players
-        }
+	}
 }
 // here can add more weapons using ","
 ```
