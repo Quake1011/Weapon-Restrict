@@ -5,14 +5,16 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
+using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Entities.Constants;
 
 namespace Weapon_Restrict;
 
-[MinimumApiVersion(42)]
+[MinimumApiVersion(53)]
 public class WeaponRestrict : BasePlugin
 {
 	public override string ModuleName => "Weapon Restrict";
-    public override string ModuleVersion => "1.1.1";
+    public override string ModuleVersion => "1.2";
     public override string ModuleAuthor => "Quake1011";
     public override string ModuleDescription => "Prohibits purchase or picking up restricted weapons";
     private const string MyLink = "https://github.com/Quake1011";
@@ -25,6 +27,8 @@ public class WeaponRestrict : BasePlugin
     {
 	    RegisterEventHandler<EventItemPurchase>(OnEventItemPurchasePost);
 	    RegisterEventHandler<EventItemPickup>(OnEventItemPickupPost);
+	    
+	    RegisterEventHandler<EventGameStart>(OnEventGameStart);
 	    PrintInfo();
 	    
 	    _weaponList = MetaData.Load();
@@ -32,12 +36,21 @@ public class WeaponRestrict : BasePlugin
     }
 
     [GameEventHandler(mode: HookMode.Post)]
+    private HookResult OnEventGameStart(EventGameStart @event, GameEventInfo info)
+    {
+	    ConVar.Find("mp_weapons_max_gun_purchases_per_weapon_per_match")?.SetValue(-1);
+	    return HookResult.Continue;
+    }
+    
+    [GameEventHandler(mode: HookMode.Post)]
     private HookResult OnEventItemPurchasePost(EventItemPurchase @event, GameEventInfo info)
     {
-	    if (IsAdmin(@event.Userid)) return HookResult.Continue;
+	    if (IsAdmin(@event.Userid)) 
+		    return HookResult.Continue;
 	    
 	    var restrictedWeapon = _weaponList.FirstOrDefault(w => w.WeaponName == @event.Weapon);
-	    if (restrictedWeapon == null) return HookResult.Continue;
+	    if (restrictedWeapon == null) 
+		    return HookResult.Continue;
 
 	    var checking = RestrictedWeaponCheck(restrictedWeapon.DefIndex, @event.Userid.TeamNum);
 	    
@@ -46,22 +59,25 @@ public class WeaponRestrict : BasePlugin
 
 	    var refunded = restrictedWeapon.Price;
 	    @event.Userid.InGameMoneyServices!.Account += refunded;
-	    if (!_config!.RefundMessageStatus) return HookResult.Continue;
+	    if (!_config!.RefundMessageStatus) 
+		    return HookResult.Continue;
 	    
 	    var message = _config.RefundMessage;
 	    message = message?.Replace("{TAG}", _config.Tag);
 	    message = message?.Replace("{WEAPON}", restrictedWeapon.Name);
 	    message = message?.Replace("{MONEY}", $"{refunded}");
 	    message = ReplaceTags(message!);
-				
 	    switch (_config.DestinationTypeRefundMessage)
 	    {
 		    case (int)PrintType.Chat:
 			    @event.Userid.PrintToChat(" " + message);
 			    break;
-		    // case (int)PrintType.Html:
-			   //  @event.Userid.PrintToCenterHtml(message);
-			   //  break;
+		    case (int)PrintType.Html:
+			    @event.Userid.PrintToCenterHtml(message);
+			    break;
+		    case (int)PrintType.Center:
+			    @event.Userid.PrintToCenter(message);
+			    break;
 	    }
 
 	    return HookResult.Continue;
@@ -70,7 +86,8 @@ public class WeaponRestrict : BasePlugin
     [GameEventHandler(mode: HookMode.Pre)]
     private HookResult OnEventItemPickupPost(EventItemPickup @event, GameEventInfo info)
     {
-	    if (IsAdmin(@event.Userid)) return HookResult.Continue;
+	    if (IsAdmin(@event.Userid)) 
+		    return HookResult.Continue;
 	    
 	    var checking = RestrictedWeaponCheck(@event.Defindex, @event.Userid.TeamNum);
 	    
@@ -78,14 +95,45 @@ public class WeaponRestrict : BasePlugin
 		    return HookResult.Continue;
 	    
 		var restrictedWeapon = _weaponList.FirstOrDefault(w => w.DefIndex == @event.Defindex);
-		if (restrictedWeapon == null) return HookResult.Continue;
+		
+		if (restrictedWeapon == null) 
+			return HookResult.Continue;
 
 		foreach (var ownerWeapon in @event.Userid.PlayerPawn.Value.WeaponServices!.MyWeapons)
 		{
-			if (ownerWeapon is not { IsValid: true, Value.IsValid: true }) continue;
-			if (ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex != @event.Defindex) continue;
+			if (ownerWeapon is not { IsValid: true, Value.IsValid: true }) 
+				continue;
+			if (ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex != @event.Defindex) 
+				continue;
+
+			var tempNum = 0;
 			
+			switch (ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex)
+			{
+				case (int)ItemDefinition.FLASHBANG:
+					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.FlashAmmo];
+					break;
+				case (ushort)ItemDefinition.HIGH_EXPLOSIVE_GRENADE:
+				case (ushort)ItemDefinition.FRAG_GRENADE:
+					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.HegrenadeAmmo];
+					break;
+				case (ushort)ItemDefinition.DECOY_GRENADE:
+					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.DecoyAmmo];
+					break;
+				case (ushort)ItemDefinition.SMOKE_GRENADE:
+					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.SmokeAmmo];
+					break;
+				case (ushort)ItemDefinition.MOLOTOV:
+				case (ushort)ItemDefinition.INCENDIARY_GRENADE:
+					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.IncAmmo];
+					break;
+			}
+
 			ownerWeapon.Value.Remove();
+
+			for (var i = tempNum; i > 0; i--)
+				@event.Userid.GiveNamedItem(restrictedWeapon.WeaponName!);
+
 			if (_config!.RestrictMessageStatus)
 			{
 				var message = _config.RestrictMessageText;
@@ -99,9 +147,12 @@ public class WeaponRestrict : BasePlugin
 					case (int)PrintType.Chat:
 						@event.Userid.PrintToChat(" " + message);
 						break;
-					// case (int)PrintType.Html:
-					// 	@event.Userid.PrintToCenterHtml(message);
-					// 	break;
+					case (int)PrintType.Html:
+						@event.Userid.PrintToCenterHtml(message);
+						break;
+					case (int)PrintType.Center:
+						@event.Userid.PrintToCenter(message);
+						break;
 				}
 			}
 		    
@@ -129,7 +180,8 @@ public class WeaponRestrict : BasePlugin
     {
 	    var res = new Result { ReturnedCount = 0, ReturnedResult = true };
 	    
-	    var wpn = _restrictions?.FirstOrDefault(k => k.Weapon == _weaponList.FirstOrDefault(w => w.DefIndex == defIndex)?.WeaponName);
+	    var wpn = _restrictions?.FirstOrDefault(k =>
+		    k.Weapon == _weaponList.FirstOrDefault(w => w.DefIndex == defIndex)?.WeaponName);
 
 	    if (wpn == null)
 	    {
@@ -145,14 +197,18 @@ public class WeaponRestrict : BasePlugin
 			    for (var i = 0; i < Server.MaxPlayers; i++)
 			    {
 				    CCSPlayerController player = new(NativeAPI.GetEntityFromIndex(i));
-				    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) continue;
+				    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) 
+					    continue;
 
-				    weapons += player.PlayerPawn.Value.WeaponServices!.MyWeapons.Where(ownerWeapon => ownerWeapon is { IsValid: true, Value.IsValid: true }).Count(ownerWeapon => defIndex == ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex);
+				    var playerWeapons = player.PlayerPawn.Value.WeaponServices!.MyWeapons;
+
+				    weapons += playerWeapons.Sum(wn => GetCount(defIndex, wn, player));
 			    }
 			    
 			    if (wpn.WeaponQuota != null)
 			    {
-				    res.ReturnedResult = (team == 3 && wpn.WeaponQuota["CT"] < weapons) || (team == 2 && wpn.WeaponQuota["T"] < weapons);
+				    res.ReturnedResult = (team == 3 && wpn.WeaponQuota["CT"] < weapons) ||
+				                         (team == 2 && wpn.WeaponQuota["T"] < weapons);
 				    res.ReturnedCount = team switch
 				    {
 					    2 => wpn.WeaponQuota["T"],
@@ -162,61 +218,51 @@ public class WeaponRestrict : BasePlugin
 			    }
 			    break;
 		    }
-		    case (int)Method.Players:
+		    case (int)Method.PlayersTeam:
 		    {
-			    var totalTeamPlayers = new List<CCSPlayerController>();
-			    foreach (var pl in Utilities.GetPlayers())
-			    {
-				    if (pl.TeamNum == team)
-				    {
-					    totalTeamPlayers.Add(pl);
-				    }
-			    }
+			    var totalTeamPlayers = Utilities.GetPlayers().Where(pl => pl.TeamNum == team).ToList();
 
-			    var sameWeapons = 0;
-			    foreach (var player in totalTeamPlayers)
-			    {
-				    foreach (var playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons)
-				    {
-					    if (playerWeapon.Value.IsValid && playerWeapon != null!)
-					    {
-						    if (playerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex == defIndex)
-						    {
-							    sameWeapons++;
-						    }
-					    }
-				    }
-			    }
+			    var sameWeapons = (from player in totalTeamPlayers from playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
 
 			    var playerDictByTeam = new List<Dictionary<string, int>>();
 			    switch (team)
 			    {
 				    case 3:
-					    playerDictByTeam = wpn.PlayerQuota?["CT"];
+					    playerDictByTeam = wpn.PlayersInTeamQuota?["CT"];
 					    break;
 				    case 2:
-					    playerDictByTeam = wpn.PlayerQuota?["T"];
+					    playerDictByTeam = wpn.PlayersInTeamQuota?["T"];
 					    break;
 			    }
 
 			    if (playerDictByTeam != null)
 			    {
-				    foreach (var line in playerDictByTeam)
-				    {
-					    foreach (var quota in line)
-					    {
-						    if(Convert.ToInt32(quota.Key) <= totalTeamPlayers.Count)
-						    {
-							    res.ReturnedCount = quota.Value;
-						    }
-					    }
-				    }
+				    foreach (var quota in from line in playerDictByTeam from quota in line where Convert.ToInt32(quota.Key) <= totalTeamPlayers.Count select quota)
+					    res.ReturnedCount = quota.Value;
 
 				    if (res.ReturnedCount >= sameWeapons)
-				    {
 					    res.ReturnedResult = false;
-				    }
 			    }
+			    break;
+		    }
+		    case (int)Method.PlayersAll:
+		    {
+			    List<CCSPlayerController> activePlayers = new();
+			    
+			    foreach (var pl in activePlayers.Where(pl => pl.TeamNum > 1))
+				    activePlayers.Add(pl);
+
+			    var sameWeapons = (from player in activePlayers from playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
+
+			    var myList = wpn.PlayersAllQuota;
+			    
+			    if (myList != null)
+					foreach (var line in myList.Where(line => Convert.ToInt32(line.Key) <= activePlayers.Count))
+						res.ReturnedCount = line.Value;
+
+				if (res.ReturnedCount >= sameWeapons)
+					res.ReturnedResult = false; 
+			    
 			    break;
 		    }
 	    }
@@ -224,54 +270,116 @@ public class WeaponRestrict : BasePlugin
 	    return res;
     }
 
+    private static int GetCount(long defIndex, CHandle<CBasePlayerWeapon> wn, CCSPlayerController player)
+    {
+	    var total = 0;
+	    if (wn is not { IsValid: true, Value.IsValid: true }) 
+		    return total;
+	    if (wn.Value.AttributeManager.Item.ItemDefinitionIndex != defIndex) 
+		    return total;
+	    
+	    switch (wn.Value.AttributeManager.Item.ItemDefinitionIndex)
+	    {
+		    case (ushort)ItemDefinition.FRAG_GRENADE:
+		    case (ushort)ItemDefinition.HIGH_EXPLOSIVE_GRENADE:
+			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.HegrenadeAmmo];
+			    break;
+		    case (ushort)ItemDefinition.FLASHBANG:
+			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.FlashAmmo];
+			    break;
+		    case (ushort)ItemDefinition.SMOKE_GRENADE:
+			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.SmokeAmmo];
+			    break;
+		    case (ushort)ItemDefinition.MOLOTOV:
+		    case (ushort)ItemDefinition.INCENDIARY_GRENADE:
+			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.IncAmmo];
+			    break;
+		    case (ushort)ItemDefinition.DECOY_GRENADE:
+			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.DecoyAmmo];
+			    break;
+		    default:
+			    total++;
+			    break;
+	    }
+
+	    return total;
+    }
+    
+    // public static void DropPlayerWeapon(CCSPlayerController player, CBasePlayerWeapon weapon)
+    // {
+	   //  foreach (var wpn in player.PlayerPawn.Value.WeaponServices!.MyWeapons)
+	   //  {
+		  //   if (weapon.Handle != wpn.Handle) continue;
+		  //   var service = new CCSPlayer_ItemServices(player.PlayerPawn.Value.ItemServices!.Handle);
+		  //   var dropWeapon = VirtualFunction.CreateVoid<nint, nint>(service.Handle, 19);
+		  //   dropWeapon(service.Handle, weapon.Handle);
+	   //  }
+    // }
+    
     private void LoadConfigs()
     {
 	    var configPath = Path.Join(ModuleDirectory, "Config.json");
-	    _config = !File.Exists(configPath) ? CreateConfig(configPath) : JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
+	    _config = !File.Exists(configPath)
+		    ? CreateConfig(configPath)
+		    : JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
 	    
 	    configPath = Path.Join(ModuleDirectory, "RestrictConfig.json");
-	    _restrictions = !File.Exists(configPath) ? CreateRestrictions(configPath) : JsonSerializer.Deserialize<List<RestrictConfig>>(File.ReadAllText(configPath));
+	    _restrictions = !File.Exists(configPath)
+		    ? CreateRestrictions(configPath)
+		    : JsonSerializer.Deserialize<List<RestrictConfig>>(File.ReadAllText(configPath));
     }
 
     private static Config CreateConfig(string configPath)
     {
         var data = Initializer.LoadConfig();
-        File.WriteAllText(configPath, JsonSerializer.Serialize(data, new JsonSerializerOptions{ WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+        File.WriteAllText(configPath,
+	        JsonSerializer.Serialize(data,
+		        new JsonSerializerOptions
+		        {
+			        WriteIndented = true,
+			        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+		        }));
         return data;
     }
 
     private static List<RestrictConfig> CreateRestrictions(string configPath)
     {
 	    var data = Initializer.LoadRestrictions();
-	    File.WriteAllText(configPath, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+	    File.WriteAllText(configPath,
+		    JsonSerializer.Serialize(data,
+			    new JsonSerializerOptions
+			    {
+				    WriteIndented = true,
+				    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+			    }));
 	    return data;
     }
 
-    private string ReplaceTags(string text)
+    private static string ReplaceTags(string text)
     {
 	    switch (_config!.DestinationTypeRestrictMessage)
 	    {
-		    // case (byte)PrintType.Html:
-			   //  text = text.Replace("{DEFAULT}", $"{HtmlColors.White}");
-			   //  text = text.Replace("{WHITE}", $"{HtmlColors.WhiteBlue}");
-			   //  text = text.Replace("{DARKRED}", $"{HtmlColors.DarkRed}");
-			   //  text = text.Replace("{GREEN}", $"{HtmlColors.Green}");
-			   //  text = text.Replace("{LIGHTYELLOW}", $"{HtmlColors.LightYellow}");
-			   //  text = text.Replace("{LIGHTBLUE}", $"{HtmlColors.LightBlue}");
-			   //  text = text.Replace("{OLIVE}", $"{HtmlColors.Olive}");
-			   //  text = text.Replace("{LIME}", $"{HtmlColors.Lime}");
-			   //  text = text.Replace("{RED}", $"{HtmlColors.Red}");
-			   //  text = text.Replace("{PURPLE}", $"{HtmlColors.Purple}");
-			   //  text = text.Replace("{GREY}", $"{HtmlColors.GrayWolf}");
-			   //  text = text.Replace("{YELLOW}", $"{HtmlColors.Yellow}");
-			   //  text = text.Replace("{GOLD}", $"{HtmlColors.Gold}");
-			   //  text = text.Replace("{SILVER}", $"{HtmlColors.Silver}");
-			   //  text = text.Replace("{BLUE}", $"{HtmlColors.Blue}");
-			   //  text = text.Replace("{DARKBLUE}", $"{HtmlColors.DarkBlue}");
-			   //  text = text.Replace("{BLUEGREY}", $"{HtmlColors.GrayCloud}");
-			   //  text = text.Replace("{MAGENTA}", $"{HtmlColors.MagentaPink}");
-			   //  text = text.Replace("{LIGHTRED}", $"{HtmlColors.LightRed}");
-			   //  break;
+		    case (byte)PrintType.Html:
+			    text = text.Replace("{DEFAULT}", $"{HtmlColors.White}");
+			    text = text.Replace("{WHITE}", $"{HtmlColors.WhiteBlue}");
+			    text = text.Replace("{DARKRED}", $"{HtmlColors.DarkRed}");
+			    text = text.Replace("{GREEN}", $"{HtmlColors.Green}");
+			    text = text.Replace("{LIGHTYELLOW}", $"{HtmlColors.LightYellow}");
+			    text = text.Replace("{LIGHTBLUE}", $"{HtmlColors.LightBlue}");
+			    text = text.Replace("{OLIVE}", $"{HtmlColors.Olive}");
+			    text = text.Replace("{LIME}", $"{HtmlColors.Lime}");
+			    text = text.Replace("{RED}", $"{HtmlColors.Red}");
+			    text = text.Replace("{PURPLE}", $"{HtmlColors.Purple}");
+			    text = text.Replace("{GREY}", $"{HtmlColors.GrayWolf}");
+			    text = text.Replace("{YELLOW}", $"{HtmlColors.Yellow}");
+			    text = text.Replace("{GOLD}", $"{HtmlColors.Gold}");
+			    text = text.Replace("{SILVER}", $"{HtmlColors.Silver}");
+			    text = text.Replace("{BLUE}", $"{HtmlColors.Blue}");
+			    text = text.Replace("{DARKBLUE}", $"{HtmlColors.DarkBlue}");
+			    text = text.Replace("{BLUEGREY}", $"{HtmlColors.GrayCloud}");
+			    text = text.Replace("{MAGENTA}", $"{HtmlColors.MagentaPink}");
+			    text = text.Replace("{LIGHTRED}", $"{HtmlColors.LightRed}");
+			    break;
 		    case (byte)PrintType.Chat:
 			    text = text.Replace("{DEFAULT}", $"{ChatColors.Default}");
 			    text = text.Replace("{WHITE}", $"{ChatColors.White}");
@@ -293,6 +401,27 @@ public class WeaponRestrict : BasePlugin
 			    text = text.Replace("{MAGENTA}", $"{ChatColors.Magenta}");
 			    text = text.Replace("{LIGHTRED}", $"{ChatColors.LightRed}");
 			    break;
+		    case (byte)PrintType.Center:
+			    text = text.Replace("{DEFAULT}", "");
+			    text = text.Replace("{WHITE}", "");
+			    text = text.Replace("{DARKRED}", "");
+			    text = text.Replace("{GREEN}", "");
+			    text = text.Replace("{LIGHTYELLOW}", "");
+			    text = text.Replace("{LIGHTBLUE}", "");
+			    text = text.Replace("{OLIVE}", "");
+			    text = text.Replace("{LIME}", "");
+			    text = text.Replace("{RED}", "");
+			    text = text.Replace("{PURPLE}", "");
+			    text = text.Replace("{GREY}", "" );
+			    text = text.Replace("{YELLOW}", "");
+			    text = text.Replace("{GOLD}", "" );
+			    text = text.Replace("{SILVER}", "");
+			    text = text.Replace("{BLUE}", "" );
+			    text = text.Replace("{DARKBLUE}", "");
+			    text = text.Replace("{BLUEGREY}", "");
+			    text = text.Replace("{MAGENTA}", "");
+			    text = text.Replace("{LIGHTRED}", "");
+			    break;
 	    }
 
 	    return text;
@@ -301,13 +430,24 @@ public class WeaponRestrict : BasePlugin
     private enum PrintType
     {
 	    Chat = 1,
-	    // Html
+	    Html,
+	    Center
     }
 
+    private enum GrenadesPos
+    {
+	    HegrenadeAmmo = 13,
+	    FlashAmmo = 14,
+	    SmokeAmmo = 15,
+		IncAmmo = 16,
+		DecoyAmmo = 17,
+    }
+    
     private enum Method
     {
-	    Players = 1,
-	    Count
+	    PlayersTeam = 1,
+	    Count,
+	    PlayersAll
     }
 
     private static bool IsAdmin(CCSPlayerController player)
@@ -341,7 +481,8 @@ public class RestrictConfig
 {
 	public string? Weapon { get; init; }
 	public Dictionary<string, int>? WeaponQuota { get; init; }
-	public Dictionary<string, List<Dictionary<string, int>>>? PlayerQuota { get; init; }
+	public Dictionary<string, List<Dictionary<string, int>>>? PlayersInTeamQuota { get; init; }
+	public Dictionary<string, int>? PlayersAllQuota { get; init; }
 }
 
 public class Result
