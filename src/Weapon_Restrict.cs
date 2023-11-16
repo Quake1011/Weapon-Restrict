@@ -243,22 +243,21 @@ public class WeaponRestrict : BasePlugin
 		    }
 		    case (int)Method.PlayersAll:
 		    {
-			    List<CCSPlayerController> activePlayers = new();
-			    
-			    foreach (var pl in activePlayers.Where(pl => pl.TeamNum > 1))
-				    activePlayers.Add(pl);
+			    var activePlayers = Utilities.GetPlayers().Where(pl => pl.TeamNum > 1).ToList();
 
 			    var sameWeapons = (from player in activePlayers from playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
 
 			    var myList = wpn.PlayersAllQuota;
-			    
-			    if (myList != null)
-					foreach (var line in myList.Where(line => Convert.ToInt32(line.Key) <= activePlayers.Count))
-						res.ReturnedCount = line.Value;
 
-				if (res.ReturnedCount >= sameWeapons)
-					res.ReturnedResult = false; 
-			    
+			    if (myList != null)
+			    {
+				    foreach (var line in myList.Where(line => Convert.ToInt32(line.Key) <= activePlayers.Count)) 
+					    res.ReturnedCount = line.Value;
+
+				    if (res.ReturnedCount >= sameWeapons)
+						res.ReturnedResult = false;
+			    }
+
 			    break;
 		    }
 	    }
@@ -449,15 +448,15 @@ public class WeaponMeta
 
 public class Config
 {
-	public string? Tag { get; set; }
-	public int DestinationTypeRestrictMessage { get; set; }
-	public int DestinationTypeRefundMessage { get; set; }
+	public string? Tag { get; init; }
+	public int DestinationTypeRestrictMessage { get; init; }
+	public int DestinationTypeRefundMessage { get; init; }
 	public string? RestrictMessageText { get; init; }
 	public bool RestrictMessageStatus { get; init; }
 	public string? RefundMessage { get; init; }
 	public bool RefundMessageStatus { get; init; }
-	public int RestrictMethod { get; set; }
-	public string? AdminImmunityFlag { get; set; }
+	public int RestrictMethod { get; init; }
+	public string? AdminImmunityFlag { get; init; }
 }
 
 public class RestrictConfig
