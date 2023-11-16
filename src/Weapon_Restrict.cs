@@ -27,8 +27,8 @@ public class WeaponRestrict : BasePlugin
     {
 	    RegisterEventHandler<EventItemPurchase>(OnEventItemPurchasePost);
 	    RegisterEventHandler<EventItemPickup>(OnEventItemPickupPost);
-	    
 	    RegisterEventHandler<EventGameStart>(OnEventGameStart);
+	    
 	    PrintInfo();
 	    
 	    _weaponList = MetaData.Load();
@@ -141,19 +141,15 @@ public class WeaponRestrict : BasePlugin
 				message = message?.Replace("{WEAPON}", restrictedWeapon.Name);
 				message = message?.Replace("{COUNT}", $"{checking.ReturnedCount}");
 				message = ReplaceTags(message!);
-				
-				switch (_config.DestinationTypeRestrictMessage)
+
+				var printMethods = new Dictionary<int, Action<string, CCSPlayerController>> 
 				{
-					case (int)PrintType.Chat:
-						@event.Userid.PrintToChat(" " + message);
-						break;
-					case (int)PrintType.Html:
-						@event.Userid.PrintToCenterHtml(message);
-						break;
-					case (int)PrintType.Center:
-						@event.Userid.PrintToCenter(message);
-						break;
-				}
+					{(int)PrintType.Chat, (msg, user) => user.PrintToChat(" " + msg)},
+					{(int)PrintType.Html, (msg, user) => user.PrintToCenterHtml(msg)},
+					{(int)PrintType.Center, (msg, user) => user.PrintToCenter(msg)} 
+				};
+
+				printMethods[_config.DestinationTypeRestrictMessage](message, @event.Userid);
 			}
 		    
 		    NativeAPI.IssueClientCommand((int)@event.Userid.EntityIndex!.Value.Value-1, "lastinv");
@@ -320,31 +316,18 @@ public class WeaponRestrict : BasePlugin
     {
 	    var configPath = Path.Join(ModuleDirectory, "Config.json");
 	    _config = !File.Exists(configPath)
-		    ? CreateConfig(configPath)
+		    ? CreateAndWriteConfig(configPath, Initializer.LoadConfig)
 		    : JsonSerializer.Deserialize<Config>(File.ReadAllText(configPath));
 	    
 	    configPath = Path.Join(ModuleDirectory, "RestrictConfig.json");
 	    _restrictions = !File.Exists(configPath)
-		    ? CreateRestrictions(configPath)
+		    ? CreateAndWriteConfig(configPath, Initializer.LoadRestrictions)
 		    : JsonSerializer.Deserialize<List<RestrictConfig>>(File.ReadAllText(configPath));
     }
 
-    private static Config CreateConfig(string configPath)
+    private static T CreateAndWriteConfig<T>(string configPath, Func<T> dataLoader)
     {
-        var data = Initializer.LoadConfig();
-        File.WriteAllText(configPath,
-	        JsonSerializer.Serialize(data,
-		        new JsonSerializerOptions
-		        {
-			        WriteIndented = true,
-			        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-		        }));
-        return data;
-    }
-
-    private static List<RestrictConfig> CreateRestrictions(string configPath)
-    {
-	    var data = Initializer.LoadRestrictions();
+	    var data = dataLoader();
 	    File.WriteAllText(configPath,
 		    JsonSerializer.Serialize(data,
 			    new JsonSerializerOptions
