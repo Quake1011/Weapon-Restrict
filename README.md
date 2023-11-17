@@ -24,7 +24,7 @@ The plugin allows you to restrict the use of certain weapons depending on the pl
 	"RestrictMessageStatus": true,					// Indicates whether the restrict message is enabled		[ true - on | false - off]
 	"RefundMessage": "{TAG}Money redunded {GOLD}{MONEY}",	// Refund message
 	"RefundMessageStatus": true,						// Indicates whether the refund message is enabled			[ true - on | false - off]
-	"RestrictMethod": 2								// Method of restricting [ 1 - by players of team | 2 - by weapons count | 3 - by total players ]
+	"RestrictMethod": 2,								// Method of restricting [ 1 - by players of team | 2 - by weapons count | 3 - by total players ]
 	"AdminImmunityFlag": "@css/root"				// Admin-flag to enable immunity for player. Admin list can be finded here:`addons/counterstrikesharp/configs/admins.json`
 }
 ```

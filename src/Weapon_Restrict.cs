@@ -111,26 +111,27 @@ public class WeaponRestrict : BasePlugin
 			switch (ownerWeapon.Value.AttributeManager.Item.ItemDefinitionIndex)
 			{
 				case (int)ItemDefinition.FLASHBANG:
-					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.FlashAmmo];
+					tempNum += @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.FlashAmmo];
 					break;
 				case (ushort)ItemDefinition.HIGH_EXPLOSIVE_GRENADE:
 				case (ushort)ItemDefinition.FRAG_GRENADE:
-					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.HegrenadeAmmo];
+					tempNum += @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.HegrenadeAmmo];
 					break;
 				case (ushort)ItemDefinition.DECOY_GRENADE:
-					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.DecoyAmmo];
+					tempNum += @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.DecoyAmmo];
 					break;
 				case (ushort)ItemDefinition.SMOKE_GRENADE:
-					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.SmokeAmmo];
+					tempNum += @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.SmokeAmmo];
 					break;
 				case (ushort)ItemDefinition.MOLOTOV:
 				case (ushort)ItemDefinition.INCENDIARY_GRENADE:
-					tempNum = @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.IncAmmo];
+					tempNum += @event.Userid.PlayerPawn.Value.WeaponServices.Ammo[(int)GrenadesPos.IncAmmo];
 					break;
 			}
-
+			
 			ownerWeapon.Value.Remove();
-
+			
+			tempNum--;
 			for (var i = tempNum; i > 0; i--)
 				@event.Userid.GiveNamedItem(restrictedWeapon.WeaponName!);
 
