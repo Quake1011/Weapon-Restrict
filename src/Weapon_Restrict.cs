@@ -6,15 +6,16 @@ using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Cvars;
+using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Entities.Constants;
 
 namespace Weapon_Restrict;
 
-[MinimumApiVersion(53)]
+[MinimumApiVersion(110)]
 public class WeaponRestrict : BasePlugin
 {
 	public override string ModuleName => "Weapon Restrict";
-    public override string ModuleVersion => "1.2";
+    public override string ModuleVersion => "1.2.1";
     public override string ModuleAuthor => "Quake1011";
     public override string ModuleDescription => "Prohibits purchase or picking up restricted weapons";
     private const string MyLink = "https://github.com/Quake1011";
@@ -435,7 +436,12 @@ public class WeaponRestrict : BasePlugin
 
     private static bool IsAdmin(CCSPlayerController player)
     {
-	    return _config?.AdminImmunityFlag != null && AdminManager.PlayerHasPermissions(player, _config.AdminImmunityFlag);
+	    if (_config?.AdminImmunityFlag == "")
+		    return true;
+
+	    var sId = new SteamID(player.SteamID);
+	    
+	    return AdminManager.PlayerHasPermissions(sId, _config!.AdminImmunityFlag!);
     }
 }
 
