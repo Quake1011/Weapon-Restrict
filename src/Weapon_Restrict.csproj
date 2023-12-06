@@ -7,9 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Reference Include="CounterStrikeSharp.API">
-      <HintPath>..\..\api\CounterStrikeSharp.API.dll</HintPath>
-    </Reference>
+    <PackageReference Include="CounterStrikeSharp.API" Version="1.0.110" />
   </ItemGroup>
 
 </Project>

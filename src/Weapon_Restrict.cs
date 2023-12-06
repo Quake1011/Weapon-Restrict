@@ -99,7 +99,7 @@ public class WeaponRestrict : BasePlugin
 		if (restrictedWeapon == null) 
 			return HookResult.Continue;
 
-		foreach (var ownerWeapon in @event.Userid.PlayerPawn.Value.WeaponServices!.MyWeapons)
+		foreach (var ownerWeapon in @event.Userid.PlayerPawn.Value!.WeaponServices!.MyWeapons)
 		{
 			if (ownerWeapon is not { IsValid: true, Value.IsValid: true }) 
 				continue;
@@ -153,9 +153,9 @@ public class WeaponRestrict : BasePlugin
 				printMethods[_config.DestinationTypeRestrictMessage](message, @event.Userid);
 			}
 		    
-		    NativeAPI.IssueClientCommand((int)@event.Userid.EntityIndex!.Value.Value-1, "lastinv");
-		    
-		    return HookResult.Continue;
+			@event.Userid.ExecuteClientCommand("lastinv");
+
+			return HookResult.Continue;
 		}
 
 		return HookResult.Continue;
@@ -197,7 +197,7 @@ public class WeaponRestrict : BasePlugin
 				    if (player is not { IsValid: true, PawnIsAlive: true } || player.TeamNum != team) 
 					    continue;
 
-				    var playerWeapons = player.PlayerPawn.Value.WeaponServices!.MyWeapons;
+				    var playerWeapons = player.PlayerPawn.Value!.WeaponServices!.MyWeapons;
 
 				    weapons += playerWeapons.Sum(wn => GetCount(defIndex, wn, player));
 			    }
@@ -219,7 +219,7 @@ public class WeaponRestrict : BasePlugin
 		    {
 			    var totalTeamPlayers = Utilities.GetPlayers().Where(pl => pl.TeamNum == team).ToList();
 
-			    var sameWeapons = (from player in totalTeamPlayers from playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
+			    var sameWeapons = (from player in totalTeamPlayers from playerWeapon in player.PlayerPawn.Value!.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
 
 			    var playerDictByTeam = new List<Dictionary<string, int>>();
 			    switch (team)
@@ -246,7 +246,7 @@ public class WeaponRestrict : BasePlugin
 		    {
 			    var activePlayers = Utilities.GetPlayers().Where(pl => pl.TeamNum > 1).ToList();
 
-			    var sameWeapons = (from player in activePlayers from playerWeapon in player.PlayerPawn.Value.WeaponServices!.MyWeapons select GetCount(defIndex, playerWeapon, player)).Sum();
+			    var sameWeapons = activePlayers.Sum(player => player.PlayerPawn.Value!.WeaponServices!.MyWeapons.Sum(playerWeapon => GetCount(defIndex, playerWeapon, player)));
 
 			    var myList = wpn.PlayersAllQuota;
 
@@ -278,20 +278,20 @@ public class WeaponRestrict : BasePlugin
 	    {
 		    case (ushort)ItemDefinition.FRAG_GRENADE:
 		    case (ushort)ItemDefinition.HIGH_EXPLOSIVE_GRENADE:
-			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.HegrenadeAmmo];
+			    total += player.PlayerPawn.Value!.WeaponServices!.Ammo[(int)GrenadesPos.HegrenadeAmmo];
 			    break;
 		    case (ushort)ItemDefinition.FLASHBANG:
-			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.FlashAmmo];
+			    total += player.PlayerPawn.Value!.WeaponServices!.Ammo[(int)GrenadesPos.FlashAmmo];
 			    break;
 		    case (ushort)ItemDefinition.SMOKE_GRENADE:
-			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.SmokeAmmo];
+			    total += player.PlayerPawn.Value!.WeaponServices!.Ammo[(int)GrenadesPos.SmokeAmmo];
 			    break;
 		    case (ushort)ItemDefinition.MOLOTOV:
 		    case (ushort)ItemDefinition.INCENDIARY_GRENADE:
-			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.IncAmmo];
+			    total += player.PlayerPawn.Value!.WeaponServices!.Ammo[(int)GrenadesPos.IncAmmo];
 			    break;
 		    case (ushort)ItemDefinition.DECOY_GRENADE:
-			    total += player.PlayerPawn.Value.WeaponServices!.Ammo[(int)GrenadesPos.DecoyAmmo];
+			    total += player.PlayerPawn.Value!.WeaponServices!.Ammo[(int)GrenadesPos.DecoyAmmo];
 			    break;
 		    default:
 			    total++;

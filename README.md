@@ -3,7 +3,7 @@ The plugin allows you to restrict the use of certain weapons depending on the pl
 
 ## Requirements
 - [Metamod](https://www.sourcemm.net/downloads.php/?branch=master)
-- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v53) >= v53
+- [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/releases/tag/v110) >= v110
 
 ## Install
 - Drop folder `build/Weapon_Restrict` to `addons/counterstrikesharp/plugins/`
